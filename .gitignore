@@ -1,0 +1,8 @@
+### Project
+.env
+
+### IDEs and OS
+.idea
+.vscode
+
+.DS_Store
