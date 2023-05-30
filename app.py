@@ -5,15 +5,17 @@ import concurrent.futures
 import threading
 from threading import Lock
 
+import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import Dash
-from dash import dcc, html, dash_table
+from dash import dash_table
+from dash import dcc, html
 from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 
 from gen import generate_prompt_generations
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # Global data store for generated prompt generations
 data = [{"prompt": "This is a prompt", "generation": "This is a generation"}]
@@ -26,13 +28,9 @@ generating_data: bool = False
 def generate_data_thread(base_prompt, keywords):
     """Generate data asynchronously and save to a given store."""
     # Run the asyncio loop and the async function
-    print("generate_data_thread", base_prompt, keywords)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(
-        generate_prompt_generations(base_prompt, keywords)
-    )
-    print("generate_data_thread", result)
+    result = loop.run_until_complete(generate_prompt_generations(base_prompt, keywords))
 
     # Add the result to the global memory
     with data_lock:
@@ -44,7 +42,6 @@ def generate_data(quantity, base_prompt, keywords, max_threads=10):
     global generating_data
     generating_data = True
 
-    print("generate_data", quantity, base_prompt, keywords)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         for _ in range(quantity):
             executor.submit(generate_data_thread, base_prompt, keywords)
@@ -53,9 +50,13 @@ def generate_data(quantity, base_prompt, keywords, max_threads=10):
 
 
 @app.callback(
-    Output('interval-component', 'n_intervals'),
-    Input('btn-generate', 'n_clicks'),
-    [State('input-base-prompt', 'value'), State('input-keywords', 'value'), State('input-quantity', 'value')]
+    Output("interval-component", "n_intervals"),
+    Input("btn-generate", "n_clicks"),
+    [
+        State("input-base-prompt", "value"),
+        State("input-keywords", "value"),
+        State("input-quantity", "value"),
+    ],
 )
 def generate_handler(n, base_prompt, keywords, quantity):
     """Generate button handler"""
@@ -75,116 +76,165 @@ def generate_handler(n, base_prompt, keywords, quantity):
     if generating_data:
         raise PreventUpdate("Data generation already in progress")
 
-    threading.Thread(target=generate_data, args=(quantity, base_prompt, keywords)).start()
+    threading.Thread(
+        target=generate_data, args=(quantity, base_prompt, keywords)
+    ).start()
 
     return n
 
 
 @app.callback(
-    Output('results-table', 'data'),
-    Input('interval-component', 'n_intervals')
+    Output("results-table", "data"), Input("interval-component", "n_intervals")
 )
 def update_table(n):
     return data
 
 
-input_form_field_style = {
-    "display": "flex",
-    "flex-direction": "row",
-    "align-items": "center",
-    "justify-content": "space-between",
-    "width": "100%",
-    "margin-bottom": "10px",
-}
+input_form_field_style = "flex m-2"
 
-input_form_input_style = {
-    "height": "2rem",
-    "width": "75%",
-}
-
-input_form = html.Div(
-    className="input-form",
-    children=[
-        html.Div(
-            className="prompt-div",
-            children=[
-                html.P("Base Prompt"),
-                dcc.Input(
-                    id="input-base-prompt",
-                    className="input-base-prompt",
-                    style=input_form_input_style,
-                    value="Base prompt to generate using"
-                )
-            ],
-            style=input_form_field_style
+base_prompt_input = dbc.Row(
+    [
+        dbc.Col(
+            dbc.Label("Base Prompt", width="auto", className="text-right pr-2"),
+            width=1,
+            align="center",
         ),
-        html.Div(
-            className="keywords-div",
-            children=[
-                html.P("Keywords"),
-                dcc.Input(
-                    id="input-keywords",
-                    className="input-keywords",
-                    style=input_form_input_style,
-                    value="keywords, to, generate, with"
-                )
-            ],
-            style=input_form_field_style
+        dbc.Col(
+            dbc.Textarea(
+                id="input-base-prompt",
+                className="w-full",
+                value="Base prompt to generate using",
+            ),
+            width=8,
+            align="center",
         ),
-        html.Div(
-            className="quantity-div",
-            children=[
-                html.P("Quantity"),
-                dcc.Input(
-                    id="input-quantity",
-                    className="input-quantity",
-                    style=input_form_input_style,
-                    type='number', min=1, max=100, step=1,
-                    value=5,
-                )
-            ],
-            style=input_form_field_style
-        ),
-        html.Button("Generate", id="btn-generate", disabled=generating_data)
     ],
+    justify="center",
+    align="center",
+    className="m-2",
+)
+
+keywords_input = dbc.Row(
+    [
+        dbc.Col(
+            dbc.Label("Keywords", width="auto", className="text-right pr-2"),
+            width=1,
+            align="center",
+        ),
+        dbc.Col(
+            dbc.Textarea(
+                id="input-keywords",
+                className="w-full",
+                value="keywords, to, generate, with",
+            ),
+            width=8,
+            align="center",
+        ),
+    ],
+    justify="center",
+    align="center",
+    className="m-2",
+)
+
+quantity_input = dbc.Row(
+    [
+        dbc.Col(
+            dbc.Label("Quantity", width="auto", className="text-right pr-2"),
+            width=1,
+            align="center",
+        ),
+        dbc.Col(
+            dcc.Input(
+                id="input-quantity",
+                className="w-1/4",
+                type="number",
+                min=1,
+                max=100,
+                step=1,
+                value=10,
+            ),
+            width=8,
+            align="center",
+        ),
+    ],
+    justify="center",
+    align="center",
+    className="m-2",
+)
+
+files_input = dcc.Upload(
+    id="upload-data",
+    children=html.Div(
+        children=[
+            html.Div(
+                children=[
+                    "Drag and Drop or Select Files",
+                ],
+                className="mb-1",
+                style={"display": "flex", "justify-content": "center"},
+            ),
+        ],
+        style={
+            "display": "flex",
+            "flex-direction": "column",
+            "justify-content": "center",
+            "height": "100%",
+        },
+    ),
+    className="mx-auto m-2 cursor-pointer text-center items-center justify-center",
     style={
-        "display": "flex",
-        "flex-direction": "column",
-        "justify-content": "space-between",
-        "align-items": "center",
-        "width": "50%",
-        "margin": "auto",
-        "padding": "1rem",
-    }
+        "width": "40%",
+        "height": "5rem",
+        "cursor": "pointer",
+        "border": "1px dashed #ccc",
+        "border-radius": "0.5rem",
+    },
+    multiple=True,
+)
+
+generate_button = dbc.Col(
+    dbc.Button("Generate", id="btn-generate", color="primary"),
+    width=12,
+    className="text-center mb-2",
+)
+
+input_form = dbc.Form(
+    id="input-form",
+    children=[
+        base_prompt_input,
+        keywords_input,
+        quantity_input,
+        files_input,
+        generate_button,
+    ],
+    className="flex flex-col justify-center items-center w-100",
 )
 
 results_table = html.Div(
     dash_table.DataTable(
-        id='results-table',
+        id="results-table",
         columns=[{"name": i, "id": i} for i in data[0].keys()],
         data=data,
-        style_cell={
-            'whiteSpace': 'normal',
-            'height': 'auto',
-            'textAlign': 'left'
-        },
+        style_cell={"whiteSpace": "normal", "height": "auto", "textAlign": "left"},
         style_table={
-            'overflowX': 'auto',
-            'width': '100%',
+            "overflowX": "auto",
+            "width": "100%",
         },
         style_data={
-            'width': 'auto',
-            'minWidth': '100px',
+            "width": "auto",
+            "minWidth": "100px",
         },
         style_cell_conditional=[
-            {'if': {'column_id': 'prompt'}, 'width': '33%'},
-            {'if': {'column_id': 'generation'}, 'width': '66%'},
+            {"if": {"column_id": "prompt"}, "width": "33%"},
+            {"if": {"column_id": "generation"}, "width": "66%"},
         ],
     ),
-    style={'width': '100%'}
+    style={"width": "100%"},
 )
 
-download_button = html.Button("Download", id="btn-download-data")
+download_button = dbc.Button(
+    "Download", id="btn-download-data", color="primary", className="m-2"
+)
 
 
 @app.callback(
@@ -210,15 +260,11 @@ app.layout = html.Div(
     children=[
         html.H1(children="Prompt-Generations Generator"),
         input_form,
-        dcc.Store(id='store', data=data),
+        dcc.Store(id="store", data=data),
         results_table,
         download_button,
         dcc.Download(id="download-data"),
-        dcc.Interval(
-            id='interval-component',
-            interval=250,
-            n_intervals=0
-        ),
+        dcc.Interval(id="interval-component", interval=250, n_intervals=0),
     ],
     style={
         "display": "flex",
@@ -228,8 +274,8 @@ app.layout = html.Div(
         "width": "80%",
         "margin": "auto",
         "padding": "1rem",
-    }
+    },
 )
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
