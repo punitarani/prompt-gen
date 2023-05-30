@@ -1,7 +1,9 @@
 """Plotly Dash App"""
 
+import asyncio
+import concurrent.futures
 import threading
-from time import sleep
+from threading import Lock
 
 import pandas as pd
 from dash import Dash
@@ -15,22 +17,37 @@ app = Dash(__name__)
 
 # Global data store for generated prompt generations
 data = [{"prompt": "This is a prompt", "generation": "This is a generation"}]
+data_lock = Lock()
 
 # Flag to indicate if data generation is in progress
 generating_data: bool = False
 
 
-def generate_data(quantity, base_prompt, keywords):
+def generate_data_thread(base_prompt, keywords):
+    """Generate data asynchronously and save to a given store."""
+    # Run the asyncio loop and the async function
+    print("generate_data_thread", base_prompt, keywords)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(
+        generate_prompt_generations(base_prompt, keywords)
+    )
+    print("generate_data_thread", result)
+
+    # Add the result to the global memory
+    with data_lock:
+        data.append(result)
+
+
+def generate_data(quantity, base_prompt, keywords, max_threads=10):
     """Generate data and save to a given store."""
     global generating_data
     generating_data = True
 
-    # TODO: Parse keywords to list
-
-    for _ in range(quantity):
-        new_row = generate_prompt_generations(base_prompt, keywords)
-        data.append(new_row)
-        sleep(1)
+    print("generate_data", quantity, base_prompt, keywords)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+        for _ in range(quantity):
+            executor.submit(generate_data_thread, base_prompt, keywords)
 
     generating_data = False
 
@@ -122,7 +139,7 @@ input_form = html.Div(
                     id="input-quantity",
                     className="input-quantity",
                     style=input_form_input_style,
-                    type='number', min=1, max=10, step=1,
+                    type='number', min=1, max=100, step=1,
                     value=5,
                 )
             ],
@@ -215,4 +232,4 @@ app.layout = html.Div(
 )
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run(debug=True)
