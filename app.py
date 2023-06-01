@@ -52,16 +52,17 @@ def generate_data(quantity, base_prompt, keywords, max_threads=10):
 @app.callback(
     Output("interval-component", "n_intervals"),
     Input("btn-generate", "n_clicks"),
-    [
-        State("input-base-prompt", "value"),
-        State("input-keywords", "value"),
-        State("input-quantity", "value"),
-    ],
+    State("input-base-prompt", "value"),
+    State("input-keywords", "value"),
+    State("input-quantity", "value"),
 )
 def generate_handler(n, base_prompt, keywords, quantity):
     """Generate button handler"""
     if n is None:
-        raise PreventUpdate
+        raise PreventUpdate("Button has not been clicked yet")
+
+    if len(data) >= quantity:
+        raise PreventUpdate("Already generated enough data")
 
     if quantity is None or quantity <= 0:
         raise PreventUpdate("Please enter a valid quantity")
@@ -77,7 +78,7 @@ def generate_handler(n, base_prompt, keywords, quantity):
         raise PreventUpdate("Data generation already in progress")
 
     threading.Thread(
-        target=generate_data, args=(quantity, base_prompt, keywords)
+        target=generate_data, args=((quantity - len(data)), base_prompt, keywords)
     ).start()
 
     return n
@@ -117,6 +118,22 @@ def update_upload_files_list(list_of_names, children):
         children.append(html.Li(name))
 
     return children
+
+
+@app.callback(
+    Output("results-progress", "value"),
+    Output("results-progress", "max"),
+    Output("results-progress", "label"),
+    Input("interval-component", "n_intervals"),
+    State("input-quantity", "value"),
+    State("results-progress", "value"),
+    prevent_initial_call=True,
+)
+def update_progress(n, quantity, progress):
+    """Update progress bar with new data after a given interval"""
+    if not generating_data and progress >= len(data):
+        raise PreventUpdate("Data generation in progress, please wait")
+    return len(data), quantity, f"{len(data)}/{quantity}" if quantity else ""
 
 
 @app.callback(
@@ -249,7 +266,7 @@ files_input = html.Div(
             multiple=True,
         ),
         html.Ul(id="upload-files-list"),
-    ]
+    ],
 )
 
 generate_button = dbc.Col(
@@ -271,24 +288,27 @@ input_form = dbc.Form(
 )
 
 results_table = html.Div(
-    dash_table.DataTable(
-        id="results-table",
-        columns=[{"name": i, "id": i} for i in data[0].keys()],
-        data=data,
-        style_cell={"whiteSpace": "normal", "height": "auto", "textAlign": "left"},
-        style_table={
-            "overflowX": "auto",
-            "width": "100%",
-        },
-        style_data={
-            "width": "auto",
-            "minWidth": "100px",
-        },
-        style_cell_conditional=[
-            {"if": {"column_id": "prompt"}, "width": "33%"},
-            {"if": {"column_id": "generation"}, "width": "66%"},
-        ],
-    ),
+    [
+        dbc.Progress(id="results-progress", value=0, max=0, className="m-2"),
+        dash_table.DataTable(
+            id="results-table",
+            columns=[{"name": i, "id": i} for i in data[0].keys()],
+            data=data,
+            style_cell={"whiteSpace": "normal", "height": "auto", "textAlign": "left"},
+            style_table={
+                "overflowX": "auto",
+                "width": "100%",
+            },
+            style_data={
+                "width": "auto",
+                "minWidth": "100px",
+            },
+            style_cell_conditional=[
+                {"if": {"column_id": "prompt"}, "width": "33%"},
+                {"if": {"column_id": "generation"}, "width": "66%"},
+            ],
+        ),
+    ],
     style={"width": "100%"},
 )
 
