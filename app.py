@@ -84,10 +84,64 @@ def generate_handler(n, base_prompt, keywords, quantity):
 
 
 @app.callback(
+    Output("upload-data-store", "data"),
+    Input("upload-data", "filename"),
+    Input("upload-data", "contents"),
+    State("upload-data-store", "data"),
+    prevent_initial_call=True,
+)
+def save_uploaded_data(list_of_names, list_of_contents, files):
+    """
+    Save uploaded data to a global store
+    Append the new data to the existing data
+    Save the data as is, without any processing
+    """
+    for name, content in zip(list_of_names, list_of_contents):
+        files.append({"name": name, "content": content})
+
+    return files
+
+
+@app.callback(
+    Output("upload-files-list", "children"),
+    Input("upload-data", "filename"),
+    State("upload-files-list", "children"),
+    prevent_initial_call=True,
+)
+def update_upload_files_list(list_of_names, children):
+    """Update list of uploaded files"""
+    if children is None:
+        children = []
+
+    for name in list_of_names:
+        children.append(html.Li(name))
+
+    return children
+
+
+@app.callback(
     Output("results-table", "data"), Input("interval-component", "n_intervals")
 )
 def update_table(n):
+    """Update table with new data after a given interval"""
     return data
+
+
+@app.callback(
+    Output("download-data", "data"),
+    Input("btn-download-data", "n_clicks"),
+    prevent_initial_call=True,
+)
+def download_handler(n_clicks):
+    """Download button handler"""
+
+    global generating_data
+    if generating_data:
+        raise PreventUpdate("Data generation in progress, please wait")
+
+    df = pd.DataFrame(data)
+    csv_string = df.to_csv(index=False, encoding="utf-8")
+    return dict(content=csv_string, filename="data.csv")
 
 
 input_form_field_style = "flex m-2"
@@ -162,34 +216,40 @@ quantity_input = dbc.Row(
     className="m-2",
 )
 
-files_input = dcc.Upload(
-    id="upload-data",
-    children=html.Div(
-        children=[
-            html.Div(
+files_input = html.Div(
+    id="upload-files-container",
+    children=[
+        dcc.Upload(
+            id="upload-data",
+            children=html.Div(
                 children=[
-                    "Drag and Drop or Select Files",
+                    html.Div(
+                        children=[
+                            "Drag and Drop or Select Files",
+                        ],
+                        className="mb-1",
+                        style={"display": "flex", "justify-content": "center"},
+                    ),
                 ],
-                className="mb-1",
-                style={"display": "flex", "justify-content": "center"},
+                style={
+                    "display": "flex",
+                    "flex-direction": "column",
+                    "justify-content": "center",
+                    "height": "100%",
+                },
             ),
-        ],
-        style={
-            "display": "flex",
-            "flex-direction": "column",
-            "justify-content": "center",
-            "height": "100%",
-        },
-    ),
-    className="mx-auto m-2 cursor-pointer text-center items-center justify-center",
-    style={
-        "width": "40%",
-        "height": "5rem",
-        "cursor": "pointer",
-        "border": "1px dashed #ccc",
-        "border-radius": "0.5rem",
-    },
-    multiple=True,
+            className="mx-auto m-2 cursor-pointer text-center items-center justify-center",
+            style={
+                "width": "40%",
+                "height": "5rem",
+                "cursor": "pointer",
+                "border": "1px dashed #ccc",
+                "border-radius": "0.5rem",
+            },
+            multiple=True,
+        ),
+        html.Ul(id="upload-files-list"),
+    ]
 )
 
 generate_button = dbc.Col(
@@ -236,29 +296,12 @@ download_button = dbc.Button(
     "Download", id="btn-download-data", color="primary", className="m-2"
 )
 
-
-@app.callback(
-    Output("download-data", "data"),
-    Input("btn-download-data", "n_clicks"),
-    prevent_initial_call=True,
-)
-def download_handler(n_clicks):
-    """Download button handler"""
-
-    global generating_data
-    if generating_data:
-        raise PreventUpdate("Data generation in progress, please wait")
-
-    df = pd.DataFrame(data)
-    csv_string = df.to_csv(index=False, encoding="utf-8")
-    return dict(content=csv_string, filename="data.csv")
-
-
 # main layout
 app.layout = html.Div(
     className="main-container",
     children=[
         html.H1(children="Prompt-Generations Generator"),
+        dcc.Store(id="upload-data-store", data=[]),
         input_form,
         dcc.Store(id="store", data=data),
         results_table,
