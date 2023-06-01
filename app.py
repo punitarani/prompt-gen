@@ -24,6 +24,9 @@ data_lock = Lock()
 # Flag to indicate if data generation is in progress
 generating_data: bool = False
 
+# Constants
+QUANTITY_STEP = 10
+
 
 def generate_data_thread(base_prompt, keywords):
     """Generate data asynchronously and save to a given store."""
@@ -219,9 +222,9 @@ quantity_input = dbc.Row(
                 id="input-quantity",
                 className="w-1/4",
                 type="number",
-                min=1,
+                min=10,
                 max=100,
-                step=1,
+                step=QUANTITY_STEP,
                 value=10,
             ),
             width=8,
@@ -294,6 +297,8 @@ results_table = html.Div(
             id="results-table",
             columns=[{"name": i, "id": i} for i in data[0].keys()],
             data=data,
+            page_action="native",
+            page_size=QUANTITY_STEP,
             style_cell={"whiteSpace": "normal", "height": "auto", "textAlign": "left"},
             style_table={
                 "overflowX": "auto",
