@@ -1,10 +1,14 @@
 """loader.py"""
 
 import re
+import sys
 
 import fitz
 
 from utils import format_text
+
+# FIXME: This is a temporary fix for the RecursionError
+sys.setrecursionlimit(2000)
 
 
 def read_file(data: bytes, extension: str) -> str:
