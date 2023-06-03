@@ -167,57 +167,27 @@ def download_handler(n_clicks):
 
 input_form_field_style = "flex m-2"
 
-base_prompt_input = dbc.Row(
-    [
-        dbc.Col(
-            dbc.Label("Base Prompt", width="auto", className="text-right pr-2"),
-            width=2,
-            align="center",
+base_prompt_input = html.Div(
+    children=[
+        dbc.Label("Base Prompt", className="text-right px-2"),
+        dbc.Textarea(
+            id="input-base-prompt",
+            className="w-full",
+            value=BASE_PROMPT,
+            contentEditable=False,
+            rows=10,
         ),
-        dbc.Col(
-            dbc.Textarea(
-                id="input-base-prompt",
-                className="w-full",
-                value=BASE_PROMPT,
-            ),
-            width=8,
-            align="center",
+        dbc.FormText(
+            "This is used as the base prompt prefixing the chunk from the files for generation."
         ),
     ],
-    justify="center",
-    align="center",
     className="m-2 h-max",
-)
-
-quantity_input = dbc.Row(
-    [
-        dbc.Col(
-            dbc.Label("Quantity", width="auto", className="text-right pr-2"),
-            width=2,
-            align="center",
-        ),
-        dbc.Col(
-            dcc.Input(
-                id="input-quantity",
-                className="w-1/4 px-2",
-                type="number",
-                min=10,
-                max=100,
-                step=QUANTITY_STEP,
-                value=10,
-            ),
-            width=8,
-            align="center",
-        ),
-    ],
-    justify="center",
-    align="center",
-    className="m-2",
 )
 
 files_input = html.Div(
     id="upload-files-container",
     children=[
+        dbc.Label("Generation Context Files", className="text-right px-2"),
         dcc.Upload(
             id="upload-data",
             children=html.Div(
@@ -239,7 +209,7 @@ files_input = html.Div(
             ),
             className="mx-auto m-2 cursor-pointer text-center items-center justify-center",
             style={
-                "width": "40%",
+                "width": "100%",
                 "height": "5rem",
                 "cursor": "pointer",
                 "border": "1px dashed #ccc",
@@ -247,14 +217,42 @@ files_input = html.Div(
             },
             multiple=True,
         ),
+        dbc.FormText("Supports: .pdf and .txt"),
         html.Ul(id="upload-files-list"),
     ],
+    style={"margin": "2rem 1rem"},
+)
+
+quantity_input = dbc.Col(
+    html.Div(
+        [
+            dbc.Label("Quantity", className="mx-2"),
+            dcc.Input(
+                id="input-quantity",
+                className="w-1/4 px-2 mx-2",
+                type="number",
+                min=10,
+                max=100,
+                step=QUANTITY_STEP,
+                value=10,
+            ),
+        ],
+        className="flex flex-row justify-center items-center",
+    ),
 )
 
 generate_button = dbc.Col(
     dbc.Button("Generate", id="btn-generate", color="primary"),
-    width=12,
-    className="text-center mb-2",
+)
+
+quantity_generate_row = html.Div(
+    dbc.Row(
+        [
+            quantity_input,
+            generate_button,
+        ],
+    ),
+    style={"margin": "2rem 1rem", "justify-content": "center", "align-items": "center"},
 )
 
 input_form = html.Div(
@@ -262,9 +260,8 @@ input_form = html.Div(
         id="input-form",
         children=[
             base_prompt_input,
-            quantity_input,
             files_input,
-            generate_button,
+            quantity_generate_row,
         ],
         className="flex flex-col justify-center items-center",
     ),
