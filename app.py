@@ -28,9 +28,28 @@ generating_data: bool = False
 # Constants
 QUANTITY_STEP = 10
 
+# This is the subject context that is provided to the LLM
 BASE_PROMPT = """
-Base prompt to generate using
+You are a scientifically accurate AI that has been tasked with generating a prompt and its generation.
+
+The prompt should be a sentence or two that is grammatically correct and makes sense.
+The prompt is the input to the AI by a human and is typically a question or a statement that is open-ended.
+
+The generation can be anything that is factually accurate and grammatically correct.
+The generation is the output of the AI and is typically a paragraph or two that answers the prompt.
+However, the generation can be shorter or longer based on the prompt and its complexity.
+
+The subject context is provided below. Generate a prompt and its generation based on the subject context.
+
+Context: %s
 """.strip()
+
+# This is appended to the end of the subject context to request a prompt and its generation in JSON format
+BASE_PROMPT_SUFFIX = """
+Now, generate a prompt and its generation based on the subject context.
+Output the prompt and its generation formatted as a JSON object.
+{"prompt": "This is a prompt", "generation": "This is a generation"}
+"""
 
 
 def generate_data_thread(base_prompt):
@@ -82,7 +101,7 @@ def generate_handler(n, base_prompt, quantity):
         raise PreventUpdate("Data generation already in progress")
 
     threading.Thread(
-        target=generate_data, args=((quantity - len(data)), base_prompt)
+        target=generate_data, args=((quantity - len(data)), base_prompt + BASE_PROMPT_SUFFIX)
     ).start()
 
     return n
@@ -172,10 +191,11 @@ base_prompt_input = html.Div(
         dbc.Label("Base Prompt", className="text-right px-2"),
         dbc.Textarea(
             id="input-base-prompt",
-            className="w-full",
             value=BASE_PROMPT,
-            contentEditable=False,
-            rows=10,
+            placeholder=BASE_PROMPT,
+            rows=18,
+            minLength=250,
+            maxLength=800,
         ),
         dbc.FormText(
             "This is used as the base prompt prefixing the chunk from the files for generation."
