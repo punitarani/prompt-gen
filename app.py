@@ -15,7 +15,8 @@ from dash.exceptions import PreventUpdate
 
 from gen import generate_prompt_generations
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.min.css"
+app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY, dbc_css])
 
 # Global data store for generated prompt generations
 data = [{"prompt": "This is a prompt", "generation": "This is a generation"}]
@@ -26,6 +27,10 @@ generating_data: bool = False
 
 # Constants
 QUANTITY_STEP = 10
+
+BASE_PROMPT = """
+Base prompt to generate using
+""".strip()
 
 
 def generate_data_thread(base_prompt, keywords):
@@ -177,7 +182,7 @@ base_prompt_input = dbc.Row(
             dbc.Textarea(
                 id="input-base-prompt",
                 className="w-full",
-                value="Base prompt to generate using",
+                value=BASE_PROMPT,
             ),
             width=8,
             align="center",
@@ -314,6 +319,7 @@ results_table = html.Div(
             ],
         ),
     ],
+    className="dbc",
     style={"width": "100%"},
 )
 
