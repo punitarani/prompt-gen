@@ -1,6 +1,7 @@
 """Plotly Dash App"""
 
 import asyncio
+import base64
 import concurrent.futures
 import threading
 from threading import Lock
@@ -14,6 +15,7 @@ from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 
 from gen import generate_prompt_generations
+from loader import read_file, chunk_text
 
 dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.min.css"
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY, dbc_css])
@@ -45,34 +47,62 @@ The subject context is provided below.
 
 # This is appended to the end of the subject context to request a prompt and its generation in JSON format
 BASE_PROMPT_SUFFIX = """
-Context: %s
+Context: {}
 
 Now, generate a prompt and its generation based on the subject context.
 Output the prompt and its generation formatted as a JSON object.
-{"prompt": "This is a prompt", "generation": "This is a generation"}
+{{"prompt": "This is a prompt", "generation": "This is a generation"}}
+
+If you are unable to generate a prompt and its generation, output an empty JSON object.
 """
 
 
-def generate_data_thread(base_prompt):
+def generate_data_thread(prompt: str) -> None:
     """Generate data asynchronously and save to a given store."""
     # Run the asyncio loop and the async function
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(generate_prompt_generations(base_prompt))
+    result = loop.run_until_complete(generate_prompt_generations(prompt))
 
     # Add the result to the global memory
     with data_lock:
         data.append(result)
 
 
-def generate_data(quantity, base_prompt, max_threads=10):
+def generate_data(quantity: int, files: dict[str, str], max_threads: int = 10) -> None:
     """Generate data and save to a given store."""
     global generating_data
     generating_data = True
 
+    chunks = []
+
+    for file in files:
+        file_name = file["name"]
+        file_content_64 = file["content"]
+
+        # File content is base64 encoded, so decode it
+        file_content_bytes = base64.b64decode(file_content_64)
+
+        # Read the file content
+        file_content = read_file(file_content_bytes, file_name.split(".")[-1])
+
+        # Split the file content into chunks
+        chunks.extend(chunk_text(file_content))
+
+    print("Chunks: ", chunks)
+
+    def prompt(chunk: str) -> str:
+        """Generate a prompt from a chunk"""
+        return BASE_PROMPT + "\n" + BASE_PROMPT_SUFFIX.format(chunk)
+
+    # Trim the chunks to the quantity
+    chunks = chunks[:quantity]
+
+    # Generate the data in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-        for _ in range(quantity):
-            executor.submit(generate_data_thread, base_prompt)
+        for chunk in chunks:
+            print(prompt(chunk))
+            executor.submit(generate_data_thread, prompt(chunk))
 
     generating_data = False
 
@@ -91,8 +121,9 @@ def valid_file(filename: str) -> bool:
     Input("btn-generate", "n_clicks"),
     State("input-base-prompt", "value"),
     State("input-quantity", "value"),
+    State("upload-data-store", "data"),
 )
-def generate_handler(n, base_prompt, quantity):
+def generate_handler(n, base_prompt, quantity, files):
     """Generate button handler"""
     if n is None:
         raise PreventUpdate("Button has not been clicked yet")
@@ -110,9 +141,11 @@ def generate_handler(n, base_prompt, quantity):
     if generating_data:
         raise PreventUpdate("Data generation already in progress")
 
+    print("Generating data: ", n, base_prompt, quantity, files)
+
     threading.Thread(
         target=generate_data,
-        args=((quantity - len(data)), base_prompt + BASE_PROMPT_SUFFIX),
+        args=((quantity - len(data)), files),
     ).start()
 
     return n
@@ -125,7 +158,7 @@ def generate_handler(n, base_prompt, quantity):
     State("upload-data-store", "data"),
     prevent_initial_call=True,
 )
-def save_uploaded_data(list_of_names, list_of_contents, files):
+def save_uploaded_data(list_of_names, list_of_contents, files) -> list:
     """
     Save uploaded data to a global store
     Append the new data to the existing data
@@ -133,7 +166,7 @@ def save_uploaded_data(list_of_names, list_of_contents, files):
     """
     for name, content in zip(list_of_names, list_of_contents):
         if valid_file(name):
-            files.append({"name": name, "content": content})
+            files.append({"name": name, "content": content.split(",")[-1]})
 
     return files
 
@@ -144,7 +177,7 @@ def save_uploaded_data(list_of_names, list_of_contents, files):
     State("upload-files-list", "children"),
     prevent_initial_call=True,
 )
-def update_upload_files_list(list_of_names, children):
+def update_upload_files_list(list_of_names, children) -> list:
     """Update list of uploaded files"""
     if children is None:
         children = []
