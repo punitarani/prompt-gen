@@ -33,26 +33,26 @@ Base prompt to generate using
 """.strip()
 
 
-def generate_data_thread(base_prompt, keywords):
+def generate_data_thread(base_prompt):
     """Generate data asynchronously and save to a given store."""
     # Run the asyncio loop and the async function
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(generate_prompt_generations(base_prompt, keywords))
+    result = loop.run_until_complete(generate_prompt_generations(base_prompt))
 
     # Add the result to the global memory
     with data_lock:
         data.append(result)
 
 
-def generate_data(quantity, base_prompt, keywords, max_threads=10):
+def generate_data(quantity, base_prompt, max_threads=10):
     """Generate data and save to a given store."""
     global generating_data
     generating_data = True
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         for _ in range(quantity):
-            executor.submit(generate_data_thread, base_prompt, keywords)
+            executor.submit(generate_data_thread, base_prompt)
 
     generating_data = False
 
@@ -61,10 +61,9 @@ def generate_data(quantity, base_prompt, keywords, max_threads=10):
     Output("interval-component", "n_intervals"),
     Input("btn-generate", "n_clicks"),
     State("input-base-prompt", "value"),
-    State("input-keywords", "value"),
     State("input-quantity", "value"),
 )
-def generate_handler(n, base_prompt, keywords, quantity):
+def generate_handler(n, base_prompt, quantity):
     """Generate button handler"""
     if n is None:
         raise PreventUpdate("Button has not been clicked yet")
@@ -78,15 +77,12 @@ def generate_handler(n, base_prompt, keywords, quantity):
     if base_prompt is None or base_prompt == "":
         raise PreventUpdate("Please enter a valid base prompt")
 
-    if keywords is None or keywords == "":
-        raise PreventUpdate("Please enter a valid keyword")
-
     global generating_data
     if generating_data:
         raise PreventUpdate("Data generation already in progress")
 
     threading.Thread(
-        target=generate_data, args=((quantity - len(data)), base_prompt, keywords)
+        target=generate_data, args=((quantity - len(data)), base_prompt)
     ).start()
 
     return n
@@ -175,7 +171,7 @@ base_prompt_input = dbc.Row(
     [
         dbc.Col(
             dbc.Label("Base Prompt", width="auto", className="text-right pr-2"),
-            width=1,
+            width=2,
             align="center",
         ),
         dbc.Col(
@@ -190,42 +186,20 @@ base_prompt_input = dbc.Row(
     ],
     justify="center",
     align="center",
-    className="m-2",
-)
-
-keywords_input = dbc.Row(
-    [
-        dbc.Col(
-            dbc.Label("Keywords", width="auto", className="text-right pr-2"),
-            width=1,
-            align="center",
-        ),
-        dbc.Col(
-            dbc.Textarea(
-                id="input-keywords",
-                className="w-full",
-                value="keywords, to, generate, with",
-            ),
-            width=8,
-            align="center",
-        ),
-    ],
-    justify="center",
-    align="center",
-    className="m-2",
+    className="m-2 h-max",
 )
 
 quantity_input = dbc.Row(
     [
         dbc.Col(
             dbc.Label("Quantity", width="auto", className="text-right pr-2"),
-            width=1,
+            width=2,
             align="center",
         ),
         dbc.Col(
             dcc.Input(
                 id="input-quantity",
-                className="w-1/4",
+                className="w-1/4 px-2",
                 type="number",
                 min=10,
                 max=100,
@@ -283,16 +257,18 @@ generate_button = dbc.Col(
     className="text-center mb-2",
 )
 
-input_form = dbc.Form(
-    id="input-form",
-    children=[
-        base_prompt_input,
-        keywords_input,
-        quantity_input,
-        files_input,
-        generate_button,
-    ],
-    className="flex flex-col justify-center items-center w-100",
+input_form = html.Div(
+    dbc.Form(
+        id="input-form",
+        children=[
+            base_prompt_input,
+            quantity_input,
+            files_input,
+            generate_button,
+        ],
+        className="flex flex-col justify-center items-center",
+    ),
+    className="w-100",
 )
 
 results_table = html.Div(
