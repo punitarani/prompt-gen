@@ -7,6 +7,21 @@ import fitz
 from utils import format_text
 
 
+def read_file(data: bytes, extension: str) -> str:
+    """
+    Read file data and return text
+    :param data: File data as bytes string
+    :param extension: File type extension
+    :return: Text string from file
+    """
+    if extension == "pdf":
+        return read_pdf(data)
+    elif extension == "txt":
+        return format_text(data.decode("utf-8"))
+    else:
+        raise NotImplementedError(f"File type {type} not supported")
+
+
 def read_pdf(data: bytes) -> str:
     """
     Read PDF data and return text
