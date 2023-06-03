@@ -4,17 +4,17 @@ gen.py
 Prompt-Generation Generator
 """
 
-import asyncio
-import random
+import json
+import os
 
-from utils import random_string
+import openai
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-async def generate_prompt_generations(base_prompt: str):
+async def generate_prompt_generations(prompt: str) -> dict:
     """Generate prompt generations"""
-    # TODO: Implement this
-    await asyncio.sleep(random.uniform(0.5, 2))
-    return {
-        "prompt": random_string(8),
-        "generation": base_prompt,
-    }
+    completion = await openai.ChatCompletion.acreate(
+        model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}]
+    )
+    return json.loads(completion.choices[0].message.content)

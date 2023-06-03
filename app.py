@@ -89,8 +89,6 @@ def generate_data(quantity: int, files: dict[str, str], max_threads: int = 10) -
         # Split the file content into chunks
         chunks.extend(chunk_text(file_content))
 
-    print("Chunks: ", chunks)
-
     def prompt(chunk: str) -> str:
         """Generate a prompt from a chunk"""
         return BASE_PROMPT + "\n" + BASE_PROMPT_SUFFIX.format(chunk)
@@ -101,7 +99,6 @@ def generate_data(quantity: int, files: dict[str, str], max_threads: int = 10) -
     # Generate the data in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         for chunk in chunks:
-            print(prompt(chunk))
             executor.submit(generate_data_thread, prompt(chunk))
 
     generating_data = False
@@ -140,8 +137,6 @@ def generate_handler(n, base_prompt, quantity, files):
     global generating_data
     if generating_data:
         raise PreventUpdate("Data generation already in progress")
-
-    print("Generating data: ", n, base_prompt, quantity, files)
 
     threading.Thread(
         target=generate_data,
