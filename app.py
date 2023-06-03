@@ -76,6 +76,15 @@ def generate_data(quantity, base_prompt, max_threads=10):
     generating_data = False
 
 
+def valid_file(filename: str) -> bool:
+    """Validate the file extension"""
+    valid_extensions = (
+        "pdf",
+        "txt",
+    )
+    return filename.endswith(valid_extensions)
+
+
 @app.callback(
     Output("interval-component", "n_intervals"),
     Input("btn-generate", "n_clicks"),
@@ -101,7 +110,8 @@ def generate_handler(n, base_prompt, quantity):
         raise PreventUpdate("Data generation already in progress")
 
     threading.Thread(
-        target=generate_data, args=((quantity - len(data)), base_prompt + BASE_PROMPT_SUFFIX)
+        target=generate_data,
+        args=((quantity - len(data)), base_prompt + BASE_PROMPT_SUFFIX),
     ).start()
 
     return n
@@ -121,7 +131,8 @@ def save_uploaded_data(list_of_names, list_of_contents, files):
     Save the data as is, without any processing
     """
     for name, content in zip(list_of_names, list_of_contents):
-        files.append({"name": name, "content": content})
+        if valid_file(name):
+            files.append({"name": name, "content": content})
 
     return files
 
@@ -138,7 +149,8 @@ def update_upload_files_list(list_of_names, children):
         children = []
 
     for name in list_of_names:
-        children.append(html.Li(name))
+        if valid_file(name):
+            children.append(html.Li(name))
 
     return children
 
