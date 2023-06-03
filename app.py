@@ -39,13 +39,14 @@ The generation can be anything that is factually accurate and grammatically corr
 The generation is the output of the AI and is typically a paragraph or two that answers the prompt.
 However, the generation can be shorter or longer based on the prompt and its complexity.
 
-The subject context is provided below. Generate a prompt and its generation based on the subject context.
-
-Context: %s
+Generate a prompt and its generation based on the subject context.
+The subject context is provided below.
 """.strip()
 
 # This is appended to the end of the subject context to request a prompt and its generation in JSON format
 BASE_PROMPT_SUFFIX = """
+Context: %s
+
 Now, generate a prompt and its generation based on the subject context.
 Output the prompt and its generation formatted as a JSON object.
 {"prompt": "This is a prompt", "generation": "This is a generation"}
@@ -205,7 +206,7 @@ base_prompt_input = html.Div(
             id="input-base-prompt",
             value=BASE_PROMPT,
             placeholder=BASE_PROMPT,
-            rows=18,
+            rows=12,
             minLength=250,
             maxLength=800,
         ),
