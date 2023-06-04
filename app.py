@@ -21,7 +21,13 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.mi
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY, dbc_css])
 
 # Global data store for generated prompt generations
-data = [{"prompt": "This is a prompt", "generation": "This is a generation"}]
+data = [
+    {
+        "chunk": "This is a chunk",
+        "prompt": "This is a prompt",
+        "generation": "This is a generation",
+    }
+]
 data_lock = Lock()
 
 # Flag to indicate if data generation is in progress
@@ -50,23 +56,30 @@ BASE_PROMPT_SUFFIX = """
 Context: {}
 
 Now, generate a prompt and its generation based on the subject context.
-Output the prompt and its generation formatted as a JSON object.
-{{"prompt": "This is a prompt", "generation": "This is a generation"}}
+You must generate between 0 and 5 prompts and their generations.
+Only generate multiple prompts and their generations if they are semantically unique.
 
-If you are unable to generate a prompt and its generation, output an empty JSON object.
+Output the prompt and its generation formatted as a JSON object.
+{{"response": [{{"prompt": "This is a prompt", "generation": "This is a generation"}}]}}
+
+If you are unable to generate a prompt and its generation, output a JSON object with an empty list as the response.
 """
 
 
-def generate_data_thread(prompt: str) -> None:
+def generate_data_thread(prompt: str, chunk: str) -> None:
     """Generate data asynchronously and save to a given store."""
     # Run the asyncio loop and the async function
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     result = loop.run_until_complete(generate_prompt_generations(prompt))
 
+    # Add the chunk to the result
+    for generation in result:
+        generation["chunk"] = chunk
+
     # Add the result to the global memory
     with data_lock:
-        data.append(result)
+        data.extend(result)
 
 
 def generate_data(quantity: int, files: dict[str, str], max_threads: int = 10) -> None:
@@ -99,7 +112,7 @@ def generate_data(quantity: int, files: dict[str, str], max_threads: int = 10) -
     # Generate the data in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         for chunk in chunks:
-            executor.submit(generate_data_thread, prompt(chunk))
+            executor.submit(generate_data_thread, prompt(chunk), chunk)
 
     generating_data = False
 
@@ -197,7 +210,13 @@ def update_progress(n, quantity, progress):
     """Update progress bar with new data after a given interval"""
     if not generating_data and progress >= len(data):
         raise PreventUpdate("Data generation in progress, please wait")
-    return len(data), quantity, f"{len(data)}/{quantity}" if quantity else ""
+
+    # Count unique chunks
+    chunks = set()
+    for item in data:
+        chunks.add(item["chunk"])
+
+    return len(chunks), quantity, f"{len(chunks)}/{quantity}" if quantity else ""
 
 
 @app.callback(
@@ -300,7 +319,7 @@ files_input = html.Div(
             },
             multiple=True,
         ),
-        dbc.FormText("Supports: .pdf and .txt"),
+        dbc.FormText("Supports .pdf and .txt files"),
         html.Ul(id="upload-files-list"),
     ],
     style={"margin": "2rem 1rem"},
@@ -309,7 +328,7 @@ files_input = html.Div(
 quantity_input = dbc.Col(
     html.Div(
         [
-            dbc.Label("Quantity", className="mx-2"),
+            dbc.Label("Number of chunks to process", className="mx-2"),
             dcc.Input(
                 id="input-quantity",
                 className="w-1/4 px-2 mx-2",
@@ -370,8 +389,9 @@ results_table = html.Div(
                 "minWidth": "100px",
             },
             style_cell_conditional=[
-                {"if": {"column_id": "prompt"}, "width": "33%"},
-                {"if": {"column_id": "generation"}, "width": "66%"},
+                {"if": {"column_id": "chunk"}, "width": "25%"},
+                {"if": {"column_id": "prompt"}, "width": "25%"},
+                {"if": {"column_id": "generation"}, "width": "50%"},
             ],
         ),
     ],
