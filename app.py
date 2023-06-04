@@ -210,7 +210,7 @@ def update_table(n):
 
 @app.callback(
     Output("download-data", "data"),
-    Input("btn-download-data", "n_clicks"),
+    Input("btn-download", "n_clicks"),
     prevent_initial_call=True,
 )
 def download_handler(n_clicks):
@@ -223,6 +223,28 @@ def download_handler(n_clicks):
     df = pd.DataFrame(data)
     csv_string = df.to_csv(index=False, encoding="utf-8")
     return dict(content=csv_string, filename="data.csv")
+
+
+@app.callback(
+    Output("btn-generate", "disabled"),
+    Input("interval-component", "n_intervals"),
+)
+def enable_disable_generate_button(n):
+    """Enable or disable generate button based on data generation status"""
+    if generating_data:
+        return True
+    return False
+
+
+@app.callback(
+    Output("btn-download", "disabled"),
+    Input("interval-component", "n_intervals"),
+)
+def enable_disable_download_button(n):
+    """Enable or disable download button based on data generation status"""
+    if generating_data:
+        return True
+    return False
 
 
 input_form_field_style = "flex m-2"
@@ -358,7 +380,7 @@ results_table = html.Div(
 )
 
 download_button = dbc.Button(
-    "Download", id="btn-download-data", color="primary", className="m-2"
+    "Download", id="btn-download", color="primary", className="m-2"
 )
 
 # main layout
