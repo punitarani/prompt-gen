@@ -52,18 +52,27 @@ The subject context is provided below.
 """.strip()
 
 # This is appended to the end of the subject context to request a prompt and its generation in JSON format
-BASE_PROMPT_SUFFIX = """
-Context: {}
-
+REQUEST_PROMPT = """
 Now, generate a prompt and its generation based on the subject context.
 You must generate between 0 and 5 prompts and their generations.
 Only generate multiple prompts and their generations if they are semantically unique.
+""".strip()
 
-Output the prompt and its generation formatted as a JSON object.
-{{"response": [{{"prompt": "This is a prompt", "generation": "This is a generation"}}]}}
 
-If you are unable to generate a prompt and its generation, output a JSON object with an empty list as the response.
-"""
+def prompt(chunk: str):
+    """Get the prompt to request a prompt and its generation in JSON format for a given chunk."""
+    return f"""
+    {BASE_PROMPT}
+    
+    Context: {chunk}
+    
+    {REQUEST_PROMPT}
+    
+    Output the prompt and its generation formatted as a JSON object.
+    {{"response": [{{"prompt": "{BASE_PROMPT}", "generation": "{REQUEST_PROMPT}"}}]}}
+    
+    If you are unable to generate a prompt and its generation, output a JSON object with an empty list as the response.
+    """.strip()
 
 
 def generate_data_thread(prompt: str, chunk: str) -> None:
@@ -101,10 +110,6 @@ def generate_data(quantity: int, files: dict[str, str], max_threads: int = 10) -
 
         # Split the file content into chunks
         chunks.extend(chunk_text(file_content))
-
-    def prompt(chunk: str) -> str:
-        """Generate a prompt from a chunk"""
-        return BASE_PROMPT + "\n" + BASE_PROMPT_SUFFIX.format(chunk)
 
     # Trim the chunks to the quantity
     chunks = chunks[:quantity]
@@ -268,19 +273,41 @@ def enable_disable_download_button(n):
 
 input_form_field_style = "flex m-2"
 
-base_prompt_input = html.Div(
+prompt_input = html.Div(
     children=[
-        dbc.Label("Base Prompt", className="text-right px-2"),
-        dbc.Textarea(
-            id="input-base-prompt",
-            value=BASE_PROMPT,
-            placeholder=BASE_PROMPT,
-            rows=12,
-            minLength=250,
-            maxLength=800,
+        html.Div(
+            [
+                dbc.Label("Base Prompt", className="text-right px-2"),
+                dbc.Textarea(
+                    id="input-base-prompt",
+                    value=BASE_PROMPT,
+                    placeholder=BASE_PROMPT,
+                    rows=12,
+                    minLength=250,
+                    maxLength=800,
+                ),
+                dbc.FormText(
+                    "This is used as the base prompt prefixing the chunk from the files for generation."
+                ),
+            ],
+            style={"margin": "2rem 0"},
         ),
-        dbc.FormText(
-            "This is used as the base prompt prefixing the chunk from the files for generation."
+        html.Div(
+            [
+                dbc.Label("Request Prompt", className="text-right px-2"),
+                dbc.Textarea(
+                    id="input-request-prompt",
+                    value=REQUEST_PROMPT,
+                    placeholder=REQUEST_PROMPT,
+                    rows=6,
+                    minLength=100,
+                    maxLength=400,
+                ),
+                dbc.FormText(
+                    "This is used as the request prompt suffixing the chunk from the files for generation."
+                ),
+            ],
+            style={"margin": "2rem 0"},
         ),
     ],
     className="m-2 h-max",
@@ -361,7 +388,7 @@ input_form = html.Div(
     dbc.Form(
         id="input-form",
         children=[
-            base_prompt_input,
+            prompt_input,
             files_input,
             quantity_generate_row,
         ],
